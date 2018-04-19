@@ -18,7 +18,12 @@ find_package(Eigen3 REQUIRED)
 
 add_message_files(
   DIRECTORY msg
-  FILES raven_automove.msg raven_state.msg
+  FILES raven_automove.msg raven_state.msg input_dyn_sim.msg
+)
+
+add_service_files(
+  FILES
+  output_dyn_sim.srv # this is for geting the next position from dynamics simulator
 )
 
 generate_messages(
@@ -38,6 +43,8 @@ include_directories(
   include/raven
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
+  ./Li_DYN/tnt
+  ./Li_DYN/jama125
 )
 
 if(CMAKE_COMPILER_IS_GNUCXX)
@@ -80,3 +87,21 @@ set(r2_control_sources
 add_executable(r2_control ${r2_control_sources})
 add_dependencies(r2_control ${${PROJECT_NAME}_EXPORTED_TARGETS})
 target_link_libraries(r2_control ${catkin_LIBRARIES})
+
+
+set(force_estimation_sources
+  Li_DYN/force_estimation.cpp
+)
+
+add_executable(force_estimation ${force_estimation_sources})
+add_dependencies(force_estimation ${${PROJECT_NAME}_EXPORTED_TARGETS})
+target_link_libraries(force_estimation ${catkin_LIBRARIES})
+
+
+set(dyn_sim_sources
+  Li_DYN/dyn_sim.cpp
+)
+
+add_executable(dyn_sim ${force_estimation_sources})
+add_dependencies(dyn_sim ${${PROJECT_NAME}_EXPORTED_TARGETS})
+target_link_libraries(dyn_sim ${catkin_LIBRARIES})

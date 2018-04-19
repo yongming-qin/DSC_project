@@ -41,7 +41,7 @@
 
 #define RAVEN_TOOLS
 //#define DV_ADAPTER			1
-#define RICKS_TOOLS     //skips tool initialization
+//#define RICKS_TOOLS     //skips tool initialization
 //#define SCISSOR_RIGHT
 #define OPPOSE_GRIP
 

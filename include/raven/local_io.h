@@ -51,7 +51,13 @@ param_pass * getRcvdParams(param_pass*);
 void updateMasterRelativeOrigin(device *device0);
 
 int init_ravenstate_publishing(ros::NodeHandle &n);
+
+// communicate with dynamics simulator
+void publish_to_dyn_sim(robot_device *dev);
+void get_srv_from_dyn_sim(robot_device *dev);
+
 void publish_ravenstate_ros(robot_device*, param_pass*);
 void setSurgeonMode(int pedalstate);
+
 
 #endif

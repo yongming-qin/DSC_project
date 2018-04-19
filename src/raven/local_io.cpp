@@ -355,6 +355,8 @@ void setSurgeonMode(int pedalstate)
 #include <raven_2/raven_state.h>
 #include <raven_2/raven_automove.h>
 #include <sensor_msgs/JointState.h>
+#include <raven_2/input_dyn_sim.h>
+#include <raven_2/output_dyn_sim.h>
 
 
 void publish_joints(robot_device*);
@@ -365,9 +367,12 @@ using namespace raven_2;
 ros::Publisher pub_ravenstate;
 ros::Subscriber sub_automove;
 ros::Publisher joint_publisher;
+ros::Publisher pub_to_dyn_sim;
+ros::ServiceClient cli_from_dyn_sim;
+
 
 /**
- *  \brief Initiates all ROS publishers and subscribers
+ *  \brief Initiates all ROS publishers, subscribers, and services
  *
  *  Currently advertises ravenstate, joint states, and 2 visualization markers.
  *  Subscribes to automove
@@ -381,6 +386,9 @@ int init_ravenstate_publishing(ros::NodeHandle &n){
 	joint_publisher = n.advertise<sensor_msgs::JointState>("joint_states", 1);
 
 	sub_automove = n.subscribe<raven_automove>("raven_automove", 1, autoincrCallback, ros::TransportHints().unreliable() );
+
+	pub_to_dyn_sim = n.advertise<input_dyn_sim>("input_dyn_sim", 1); // DAC and position to dynamics simulator
+	cli_from_dyn_sim = n.serviceClient<output_dyn_sim>("output_dyn_sim"); // get next position from dynamics simulator
 
 	return 0;
 }
@@ -446,6 +454,41 @@ void autoincrCallback(raven_2::raven_automove msg)
 
 }
 
+/**
+ * \brief Publishes DAC and position to dynamics simulator
+ * \param dev robot device structure with the current state of the robot. publish it
+ * \param
+ * \ingroup ROS
+ */
+void publish_to_dyn_sim(robot_device *dev) {
+	static input_dyn_sim msg;
+	msg.hdr.stamp = msg.hdr.stamp.now();
+	for (int i=0; i<MAX_MECH_PER_DEV; ++i) { // i: 0 1 represent two arms
+		for (int j=0; j<3; ++j) { // i: 0 1 2 represent SHOULDER, ELBOW, Z_INS
+			msg.dac_val[j+i*3] = dev->mech[i].joint[j].current_cmd;
+			msg.mpos[j+i*3] = (double)dev->mech[i].joint[j].mpos;
+			msg.mvel[j+i*3] = (double)dev->mech[i].joint[j].mvel;
+		}
+	}
+	pub_to_dyn_sim.publish(msg);
+}
+
+/**
+ * \brief Call a service to get the next postion from dynamics simulator
+ * 
+ * \param dev robot device structure with the current state of the robot. change it
+ * \param
+ * \ingroup ROS
+ */
+void get_srv_from_dyn_sim(robot_device *dev) {
+	static output_dyn_sim srv;
+	for (int i=0; i<MAX_MECH_PER_DEV; ++i) { // i: 0 1 represent two arms
+		for (int j=0; j<3; ++j) { // i: 0 1 2 represent SHOULDER, ELBOW, Z_INS
+			dev->mech[i].joint[j].mpos = srv.response.mpos[j+i*3];
+			dev->mech[i].joint[j].mvel = srv.response.mvel[j+i*3];
+		}
+	}
+}
 
 
 /**
@@ -515,6 +558,11 @@ void publish_ravenstate_ros(robot_device *dev, param_pass *currParams){
 			msg_ravenstate.mpos_d[jtype]     = dev->mech[j].joint[m].mpos_d RAD2DEG;
 			msg_ravenstate.encoffsets[jtype] = dev->mech[j].joint[m].enc_offset;
 			msg_ravenstate.dac_val[jtype]    = dev->mech[j].joint[m].current_cmd;
+			msg_ravenstate.j_enc_pos[jtype]    = dev->mech[j].joint[m].j_enc_pos;
+			/*
+			if (m < 3) { // 3 extra joint encoders for each arm
+				msg_ravenstate.j_enc_pos[jtype]    = dev->mech[j].joint[m].j_enc_pos;
+			} */
 		}
 
 		//grab jacobian velocities and forces

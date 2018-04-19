@@ -51,6 +51,8 @@
 #include "update_device_state.h"
 #include "r2_jacobian.h"
 
+#include "local_io.h" // for dyn_sim communication
+
 extern int NUM_MECH; //Defined in rt_process_preempt.cpp
 extern unsigned long int gTime; //Defined in rt_process_preempt.cpp
 extern DOF_type DOF_types[]; //Defined in DOF_type.h
@@ -64,6 +66,8 @@ int applyTorque(device *device0, param_pass *currParams);
 int raven_sinusoidal_joint_motion(device *device0, param_pass *currParams);
 
 extern int initialized; //Defined in rt_process_preempt.cpp
+
+static int hom = 0; // This local variable checks if the homing process is done.
 
 /**
 *  	\fn int controlRaven(device *device0, param_pass *currParams)
@@ -101,7 +105,12 @@ int controlRaven(device *device0, param_pass *currParams){
     initRobotData(device0, currParams->runlevel, currParams);
 
     //Compute Mpos & Velocities
-    stateEstimate(device0);
+    if (controlmode == dyn_sim && hom == 1) { // we start dyn_sim communication after this mode does homing
+        // The added service call in local_io.cpp will keep getting the next position from dyn_sim
+        get_srv_from_dyn_sim(device0); // write the next position in device0
+    } else {
+        stateEstimate(device0); // This is the original cases
+    }
 
     //Forward Cable Coupling
     fwdCableCoupling(device0, currParams->runlevel);
@@ -154,7 +163,7 @@ int controlRaven(device *device0, param_pass *currParams){
             break;
         //Runs homing mode
         case homing_mode:
-        	static int hom = 0;
+        	hom = 0; // force homing process
         	if (hom==0){
         		log_msg("Entered homing mode");
         		hom = 1;
@@ -182,7 +191,31 @@ int controlRaven(device *device0, param_pass *currParams){
             initialized = false;
             ret = raven_sinusoidal_joint_motion(device0, currParams);
             break;
+        //To run dyn_sim mode. First do homing, then use cartesian_space_control_command()
+        case dyn_sim:
+            // first run homing process
+            if (hom==0) // check if the homing process is done
+            {
+                log_msg("Entered homing mode");
+                initialized = false;
+                //initialized = robot_ready(device0) ? true:false;
+                ret = raven_homing(device0, currParams);
+                set_posd_to_pos(device0);
+                updateMasterRelativeOrigin(device0);
 
+                if (robot_ready(device0))
+                {
+                    currParams->robotControlMode = dyn_sim; // actually not need
+                    newRobotControlMode = dyn_sim; // not sure
+                    log_msg("*** Start to use dynamics simulator ***");
+                }
+                hom = 1;
+            }
+            // then use raven_cartesian_space_command() which will calculate the DAC values
+            ret = raven_cartesian_space_command(device0, currParams);
+            // then keep publishing control dac (necessary) and position (need this once for initial position)
+            publish_to_dyn_sim(device0);
+            break;
         default:
             ROS_ERROR("Error: unknown control mode in controlRaven (rt_raven.cpp)");
             ret = -1;

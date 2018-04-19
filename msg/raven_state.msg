@@ -21,3 +21,4 @@ float32[2]  	grasp_d
 float32[16] 	encoffsets
 float32[12] 	jac_vel
 float32[12] 	jac_f
+float32[16]     j_enc_pos

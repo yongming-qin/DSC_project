@@ -275,18 +275,22 @@ static void *rt_process(void* )
         }
       //////////////// END SURGICAL ROBOT CODE ///////////////////////////
 
-      // Check for overcurrent and impose safe torque limits
-      if (overdriveDetect(&device0, currParams.runlevel))
-        {
-	  soft_estopped = TRUE;
-	  showInverseKinematicsSolutions(&device0, currParams.runlevel);
-	  outputRobotState();
-        }
-      //Update Atmel Output Pins
-      updateAtmelOutputs(&device0, currParams.runlevel);
+      if (currParams.robotControlMode == dyn_sim) { // this mode is set n rt_raven.cpp after homing
+        continue;  // dyn_sim doesn't need to communicate with the usb board
+      } else {
+        // Check for overcurrent and impose safe torque limits
+        if (overdriveDetect(&device0, currParams.runlevel))
+          {
+            soft_estopped = TRUE;
+            showInverseKinematicsSolutions(&device0, currParams.runlevel);
+            outputRobotState();
+          }
+        //Update Atmel Output Pins
+        updateAtmelOutputs(&device0, currParams.runlevel);
 
-      //Fill USB Packet and send it out
-      putUSBPackets(&device0); //disable usb for par port test
+        //Fill USB Packet and send it out
+        putUSBPackets(&device0); //disable usb for par port test
+      }
 
       //Publish current raven state
       publish_ravenstate_ros(&device0,&currParams);   // from local_io

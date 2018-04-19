@@ -575,7 +575,7 @@ const int homing_max_dac[8] = {2500,  //shoulder
 #else
 const int homing_max_dac[8] = {2100,  //shoulder
 		2100,  //elbow
-		1600, //1900,  //z_ins
+		1700, //1900,  //z_ins
 		0,
 		1900,  //tool_rot  //rasised from 1400 alewis 3/4/14
 		1900,  //wrist
