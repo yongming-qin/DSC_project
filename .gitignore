@@ -1,5 +1,6 @@
 # Text editor backups
 *~
+.vscode
 
 # Python byte code
 *.pyc
